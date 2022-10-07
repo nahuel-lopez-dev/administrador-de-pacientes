@@ -1,4 +1,5 @@
 // variables y selectores
+let DB;
 const mascotaInput = document.querySelector('#mascota');
 const propietarioInput = document.querySelector('#propietario');
 const telefonoInput = document.querySelector('#telefono');
@@ -11,6 +12,14 @@ const formulario = document.querySelector('#nueva-cita');
 const contenedorCitas = document.querySelector('#citas');
 
 let editando = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('documento listo');
+    // Registra eventos
+    eventListeners();
+    // Creando la base de datos
+    crearDB();
+})
 
 // Clases
 class Citas {
@@ -146,7 +155,6 @@ const ui = new UI();
 const administrarCitas = new Citas();
 
 // Registra eventos
-eventListeners();
 function eventListeners() {
     mascotaInput.addEventListener('input', datosCita);
     propietarioInput.addEventListener('input', datosCita);
@@ -205,20 +213,34 @@ function nuevaCita(e) {
         // Quita modo edición
         editando = false;
 
-    } else {
+    } else { //nuevos registros
         // Genera un id único
         citaObj.id = Date.now();
 
         // Crea una nueva cita
         administrarCitas.agregarCita({...citaObj}); // se pasa el objeto por valor, no por referencia
 
-        // Mensaje de agregado correctamente
-        ui.imprimirAlerta('Se agregó correctamente');
+        // Insertar Registro en IndexedDB
+        const transaction = DB.transaction(['citas'], 'readwrite');
+        // Habilitando o accediendo al objectStore
+        const objectStore = transaction.objectStore('citas');
+        // Insertar en la base de datos
+        objectStore.add(citaObj);
+
+        transaction.oncomplete = () => {
+            console.log('Cita agregada');
+            // Mensaje de agregado correctamente
+            ui.imprimirAlerta('Se agregó correctamente');
+        }
+
+        transaction.onerror = () => {
+            console.log('Hubo un error');
+        }
 
     }
 
     // Genera un ID único
-    citaObj.id = Date.now();
+    // citaObj.id = Date.now();
 
     // Creando una nueva cita, usando el spread operator
     // administrarCitas.agregarCita({ ...citaObj }); // se pasa el objeto citaObj, pero se crea una copia de él
@@ -281,4 +303,48 @@ function cargarEdicion(cita) {
     formulario.querySelector('button[type="submit"]').textContent = 'Guardar cambios';
 
     editando = true;
+}
+
+// Código de IndexedDB
+function crearDB(){
+    // Crear la base de datos en versión 1.0
+    const crearDB = indexedDB.open('citas', 1);
+
+    // Si hay un error enviarlo a la consola
+    crearDB.onerror = function() {
+        console.log('Hubo un error');
+    }
+
+    // Si todo esta bien entonces muestra en consola, y asignar la base de datos
+    crearDB.onsuccess = function() {
+        console.log('Todo listo');
+
+        // Asignar a la base de datos
+        DB = crearDB.result;
+        console.log(DB);
+
+        // Mostrar elementos de la base de datos
+        ui.imprimirCitas(administrarCitas);
+    }
+
+    // Este método solo corre una vez y es ideal para crear el Schema de la base de datos
+    crearDB.onupgradeneeded = function(e) {
+        // El evento es la misma base de datos
+        const db = e.target.result;
+
+        // Definir el object store, toma 2 parametros el nombre de la base de datos y las opciones
+        // Keypath es el indice de la base de datos
+        const objectStore = db.createObjectStore('citas', { keyPath: 'id', autoIncrement: true } );
+
+        // Crear los indices y campos de la base de datos, createIndex: 3 parametros, nombre, keypath y opciones
+        objectStore.createIndex('mascota', 'mascota', { unique: false });
+        objectStore.createIndex('propietario', 'propietario', { unique: false });
+        objectStore.createIndex('telefono', 'telefono', { unique: false });
+        objectStore.createIndex('fecha', 'fecha', { unique: false });
+        objectStore.createIndex('hora', 'hora', { unique: false });
+        objectStore.createIndex('sintomas', 'sintomas', { unique: false });
+
+        console.log('Base de datos creada y lista');
+    }
+
 }
