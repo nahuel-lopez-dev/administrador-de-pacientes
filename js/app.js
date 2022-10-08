@@ -311,6 +311,7 @@ function eliminarCita(id) {
     transaction.oncomplete = () => {
         console.log(`Se eliminó el registro con el ID ${id}`);
         ui.imprimirCitas();
+        ui.imprimirAlerta('La cita se eliminó correctamente');
     }
 
     transaction.onerror = () => {
